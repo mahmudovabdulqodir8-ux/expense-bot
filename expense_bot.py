@@ -10,7 +10,8 @@ from telegram.ext import (
     filters, ConversationHandler
 )
 
-BOT_TOKEN = "8623498253:AAGXuG87KIsG8QIqyNUIo2zpJ76s7bjk71o"
+import os
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
 SELECT_CATEGORY, OTHER_TYPE, AMOUNT = range(3)
 
@@ -183,4 +184,5 @@ def main():
 
 
 if __name__ == "__main__":
+
     main()
