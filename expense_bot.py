@@ -159,6 +159,65 @@ async def daily(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(text)
 
+import re
+from datetime import datetime
+
+async def report(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    if len(context.args) != 1:
+        await update.message.reply_text(
+            "Usage: /report DD.MM.YYYY\nExample: /report 02.03.2026"
+        )
+        return
+
+    date_str = context.args[0]
+
+    if not re.fullmatch(r"\d{2}\.\d{2}\.\d{4}", date_str):
+        await update.message.reply_text(
+            "Invalid format.\nUse: /report DD.MM.YYYY"
+        )
+        return
+
+    try:
+        date_obj = datetime.strptime(date_str, "%d.%m.%Y")
+    except:
+        await update.message.reply_text("Invalid date.")
+        return
+
+    conn = sqlite3.connect(DB)
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        SELECT category, other, amount
+        FROM expenses
+        WHERE date(ts) = ?
+        AND user_id = ?
+        """,
+        (date_obj.date(), update.effective_user.id)
+    )
+
+    rows = cur.fetchall()
+    conn.close()
+
+    if not rows:
+        await update.message.reply_text("No expenses for this date.")
+        return
+
+    total = 0
+    text = f"Expenses for {date_str}:\n\n"
+
+    for cat, other, amount in rows:
+
+        name = other if cat == "boshqalar" else cat
+
+        text += f"{name}: {amount}\n"
+        total += amount
+
+    text += f"\nTotal: {total}"
+
+    await update.message.reply_text(text)
+
 
 # -------- MAIN --------
 def main():
@@ -178,6 +237,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(conv_handler)
     app.add_handler(CommandHandler("daily", daily))
+    app.add_handler(CommandHandler("report", report))
 
     print("Bot ishga tushdi...")
     app.run_polling()
@@ -186,3 +246,4 @@ def main():
 if __name__ == "__main__":
 
     main()
+
