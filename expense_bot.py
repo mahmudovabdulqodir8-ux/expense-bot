@@ -218,6 +218,111 @@ async def report(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(text)
 
+async def weekly(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    today = datetime.utcnow().date()
+    start = today - timedelta(days=today.weekday())
+    end = start + timedelta(days=6)
+
+    conn = sqlite3.connect(DB)
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT category, other, SUM(amount)
+        FROM expenses
+        WHERE date(ts) BETWEEN ? AND ?
+        AND user_id = ?
+        GROUP BY category, other
+    """, (start, end, update.effective_user.id))
+
+    rows = cur.fetchall()
+    conn.close()
+
+    if not rows:
+        await update.message.reply_text("No expenses this week.")
+        return
+
+    total = 0
+    text = f"Weekly expenses ({start} → {end})\n\n"
+
+    for cat, other, amount in rows:
+        name = other if cat == "boshqalar" else cat
+        text += f"{name}: {amount}\n"
+        total += amount
+
+    text += f"\nTotal: {total}"
+
+    await update.message.reply_text(text)
+
+async def monthly(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    today = datetime.utcnow().date()
+    start = today.replace(day=1)
+
+    conn = sqlite3.connect(DB)
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT category, other, SUM(amount)
+        FROM expenses
+        WHERE date(ts) >= ?
+        AND user_id = ?
+        GROUP BY category, other
+    """, (start, update.effective_user.id))
+
+    rows = cur.fetchall()
+    conn.close()
+
+    if not rows:
+        await update.message.reply_text("No expenses this month.")
+        return
+
+    total = 0
+    text = f"Monthly expenses ({start.strftime('%B %Y')})\n\n"
+
+    for cat, other, amount in rows:
+        name = other if cat == "boshqalar" else cat
+        text += f"{name}: {amount}\n"
+        total += amount
+
+    text += f"\nTotal: {total}"
+
+    await update.message.reply_text(text)
+
+async def yearly(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
+    year = datetime.utcnow().year
+
+    conn = sqlite3.connect(DB)
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT category, other, SUM(amount)
+        FROM expenses
+        WHERE strftime('%Y', ts) = ?
+        AND user_id = ?
+        GROUP BY category, other
+    """, (str(year), update.effective_user.id))
+
+    rows = cur.fetchall()
+    conn.close()
+
+    if not rows:
+        await update.message.reply_text("No expenses this year.")
+        return
+
+    total = 0
+    text = f"Yearly expenses ({year})\n\n"
+
+    for cat, other, amount in rows:
+        name = other if cat == "boshqalar" else cat
+        text += f"{name}: {amount}\n"
+        total += amount
+
+    text += f"\nTotal: {total}"
+
+    await update.message.reply_text(text)
+
 
 # -------- MAIN --------
 def main():
@@ -238,6 +343,9 @@ def main():
     app.add_handler(conv_handler)
     app.add_handler(CommandHandler("daily", daily))
     app.add_handler(CommandHandler("report", report))
+    app.add_handler(CommandHandler("weekly", weekly))
+    app.add_handler(CommandHandler("monthly", monthly))
+    app.add_handler(CommandHandler("yearly", yearly))
 
     print("Bot ishga tushdi...")
     app.run_polling()
@@ -246,4 +354,5 @@ def main():
 if __name__ == "__main__":
 
     main()
+
 
